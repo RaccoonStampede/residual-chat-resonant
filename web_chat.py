@@ -351,8 +351,8 @@ def api_export_session(session_id: str):
             return jsonify(_err("Persistence disabled.", 503)), 503
         data = storage.export_session_json(session_id)
         return jsonify(_ok(data))
-    except ValueError as exc:
-        return jsonify(_err(str(exc), 404)), 404
+    except ValueError:
+        return jsonify(_err("Session not found.", 404)), 404
     except Exception as exc:
         logger.exception("Error exporting session")
         return jsonify(_err("Failed to export session.", 500)), 500
