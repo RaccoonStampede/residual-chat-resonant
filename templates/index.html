@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ResidualChat-Resonant</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #10131a;
+      color: #eef2ff;
+    }
+    .shell {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    .panel {
+      background: #181d27;
+      border: 1px solid #2a3242;
+      border-radius: 12px;
+      padding: 12px;
+    }
+    #messages {
+      flex: 1;
+      min-height: 320px;
+      max-height: 60vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .message {
+      padding: 10px 12px;
+      border-radius: 10px;
+      line-height: 1.4;
+    }
+    .you {
+      background: #20314f;
+      align-self: flex-end;
+    }
+    .chat {
+      background: #24311f;
+      align-self: flex-start;
+    }
+    .meta {
+      font-size: 12px;
+      opacity: 0.8;
+      margin-bottom: 4px;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    input, button {
+      font: inherit;
+      border-radius: 10px;
+      border: 1px solid #3a465d;
+      padding: 10px 12px;
+    }
+    input {
+      flex: 1;
+      background: #0e1219;
+      color: #eef2ff;
+    }
+    button {
+      background: #2d4267;
+      color: #eef2ff;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #365381;
+    }
+    #status {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 8px;
+      font-size: 14px;
+    }
+    .status-card {
+      background: #111722;
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="panel">
+      <h1 style="margin: 0 0 8px;">ResidualChat-Resonant</h1>
+      <div style="opacity: 0.8;">Ask questions, confirm/reject the latest reply, or teach the field with <code>/teach ...</code>.</div>
+    </div>
+
+    <div id="status" class="panel"></div>
+
+    <div id="messages" class="panel"></div>
+
+    <div class="panel">
+      <div class="row">
+        <input id="chat-input" type="text" placeholder="Type a question or /teach new text">
+        <button id="send-btn">Send</button>
+      </div>
+      <div class="row" style="margin-top: 8px;">
+        <button id="confirm-btn">Confirm</button>
+        <button id="reject-btn">Reject</button>
+        <button id="status-btn">Status</button>
+        <button id="reset-btn">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const messages = document.getElementById("messages");
+    const status = document.getElementById("status");
+    const input = document.getElementById("chat-input");
+
+    function addMessage(speaker, text) {
+      const node = document.createElement("div");
+      node.className = `message ${speaker === "You" ? "you" : "chat"}`;
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      meta.textContent = speaker;
+      const body = document.createElement("div");
+      body.textContent = text;
+      node.appendChild(meta);
+      node.appendChild(body);
+      messages.appendChild(node);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    function renderStatus(data) {
+      const fields = [
+        ["Turn", data.turns],
+        ["Fragments", data.fragments],
+        ["Confirms", data.confirms],
+        ["Rejects", data.rejects]
+      ];
+      status.innerHTML = "";
+      for (const [label, value] of fields) {
+        const node = document.createElement("div");
+        node.className = "status-card";
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = label;
+        const body = document.createElement("div");
+        body.textContent = String(value);
+        node.appendChild(meta);
+        node.appendChild(body);
+        status.appendChild(node);
+      }
+    }
+
+    async function api(path, method = "GET", body = null) {
+      const response = await fetch(path, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : null
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || "Request failed");
+      }
+      return data;
+    }
+
+    async function refreshStatus() {
+      const data = await api("/api/status");
+      renderStatus(data.status);
+    }
+
+    async function sendInput() {
+      const text = input.value.trim();
+      if (!text) {
+        return;
+      }
+      addMessage("You", text);
+      input.value = "";
+      const endpoint = text.startsWith("/teach ") ? "/api/teach" : "/api/chat";
+      const payload = text.startsWith("/teach ")
+        ? { text: text.slice(7).trim() }
+        : { query: text };
+      try {
+        const data = await api(endpoint, "POST", payload);
+        addMessage("Chat", data.response || data.message);
+        renderStatus(data.status);
+      } catch (error) {
+        addMessage("Chat", error.message);
+      }
+    }
+
+    document.getElementById("send-btn").addEventListener("click", sendInput);
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        sendInput();
+      }
+    });
+
+    document.getElementById("confirm-btn").addEventListener("click", async () => {
+      try {
+        const data = await api("/api/confirm", "POST", {});
+        addMessage("Chat", data.message);
+        renderStatus(data.status);
+      } catch (error) {
+        addMessage("Chat", error.message);
+      }
+    });
+
+    document.getElementById("reject-btn").addEventListener("click", async () => {
+      try {
+        const data = await api("/api/reject", "POST", {});
+        addMessage("Chat", data.message);
+        renderStatus(data.status);
+      } catch (error) {
+        addMessage("Chat", error.message);
+      }
+    });
+
+    document.getElementById("status-btn").addEventListener("click", refreshStatus);
+
+    document.getElementById("reset-btn").addEventListener("click", async () => {
+      try {
+        const data = await api("/api/reset", "POST", {});
+        addMessage("Chat", data.message);
+        renderStatus(data.status);
+      } catch (error) {
+        addMessage("Chat", error.message);
+      }
+    });
+
+    refreshStatus();
+  </script>
+</body>
+</html>
