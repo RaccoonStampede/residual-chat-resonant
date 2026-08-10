@@ -540,6 +540,66 @@ def internal_error(e):
 # Entry point
 # ------------------------------------------------------------------
 
+def create_app(session=None):
+    """Factory that returns a Flask app bound to a ChatSession.
+
+    Provides a minimal, testable API surface:
+      GET  /api/status  — session status
+      POST /api/chat    — send a query
+      POST /api/confirm — confirm last reply
+      POST /api/reject  — reject last reply
+      POST /api/teach   — teach a fragment
+      POST /api/reset   — reset to fresh state
+    """
+    from chat_interface_utils import ChatSession as _ChatSession
+
+    if session is None:
+        session = _ChatSession()
+
+    factory_app = Flask(__name__)
+
+    @factory_app.route("/api/status", methods=["GET"])
+    def _cs_status():
+        return jsonify({"status": session.status()})
+
+    @factory_app.route("/api/chat", methods=["POST"])
+    def _cs_chat():
+        data = request.get_json(silent=True) or {}
+        query = data.get("query", "")
+        if not isinstance(query, str) or not query.strip():
+            return jsonify({"error": "query must not be empty"}), 400
+        try:
+            reply = session.ask(query)
+            return jsonify({"response": reply})
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+
+    @factory_app.route("/api/confirm", methods=["POST"])
+    def _cs_confirm():
+        return jsonify({"message": session.confirm()})
+
+    @factory_app.route("/api/reject", methods=["POST"])
+    def _cs_reject():
+        return jsonify({"message": session.reject()})
+
+    @factory_app.route("/api/teach", methods=["POST"])
+    def _cs_teach():
+        data = request.get_json(silent=True) or {}
+        text = data.get("text", "")
+        if not isinstance(text, str) or not text.strip():
+            return jsonify({"error": "text must not be empty"}), 400
+        try:
+            return jsonify({"message": session.teach(text)})
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+
+    @factory_app.route("/api/reset", methods=["POST"])
+    def _cs_reset():
+        return jsonify({"status": session.reset()})
+
+    return factory_app
+
+
 if __name__ == "__main__":
     port = cfg.FLASK_PORT
     debug = cfg.FLASK_DEBUG

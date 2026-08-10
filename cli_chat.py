@@ -22,6 +22,7 @@ import os
 import sys
 from datetime import datetime, timezone
 
+from chat_interface_utils import ChatSession, format_status
 from config import get_config
 from residual_chat_resonant import ResidualChatResonant
 from storage import StorageManager
@@ -245,6 +246,41 @@ class CLIChat:
                     )
                 except Exception:
                     logger.warning("Failed to persist message", exc_info=True)
+
+
+def handle_input(session: ChatSession, text: str) -> tuple:
+    """Process one line of CLI input against a ChatSession.
+
+    Returns ``(message, should_exit)`` so callers can decide whether to quit.
+    """
+    text = text.strip()
+    if not text:
+        return ("", False)
+
+    if text.startswith("/"):
+        parts = text.split(maxsplit=1)
+        cmd = parts[0].lower()
+        arg = parts[1] if len(parts) > 1 else ""
+
+        if cmd in ("/quit", "/exit"):
+            return ("Goodbye.", True)
+        elif cmd == "/help":
+            return (HELP_TEXT, False)
+        elif cmd == "/confirm":
+            return (session.confirm(), False)
+        elif cmd == "/reject":
+            return (session.reject(), False)
+        elif cmd == "/status":
+            return (format_status(session.status()), False)
+        elif cmd == "/teach":
+            if not arg:
+                return ("Usage: /teach <text>", False)
+            return (session.teach(arg), False)
+        else:
+            return (f"Unknown command: {cmd}. Type /help.", False)
+
+    reply = session.ask(text)
+    return (reply, False)
 
 
 def main():
