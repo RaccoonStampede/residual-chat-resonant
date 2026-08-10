@@ -65,8 +65,8 @@ def create_app(session: ChatSession = None, port: int = DEFAULT_PORT):
             return error_response("query is required")
         try:
             response, status = run_action(lambda current: (current.ask(query), current.status()))
-        except ValueError as exc:
-            return error_response(str(exc))
+        except ValueError:
+            return error_response("query must not be empty")
         return ok_response({"response": response, "status": status})
 
     @app.route("/api/confirm", methods=["POST", "OPTIONS"])
@@ -93,8 +93,8 @@ def create_app(session: ChatSession = None, port: int = DEFAULT_PORT):
             return error_response("text is required")
         try:
             message, status = run_action(lambda current: (current.teach(text), current.status()))
-        except ValueError as exc:
-            return error_response(str(exc))
+        except ValueError:
+            return error_response("teach text must not be empty")
         return ok_response({"message": message, "status": status})
 
     @app.route("/api/status", methods=["GET", "OPTIONS"])
