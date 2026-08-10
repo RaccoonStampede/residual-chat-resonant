@@ -32,7 +32,7 @@ from datetime import datetime, timezone
 from functools import wraps
 from typing import Any, Dict, Optional
 
-from flask import Flask, g, jsonify, render_template, request, send_file
+from flask import Flask, g, jsonify, redirect, render_template, request, send_file, send_from_directory
 
 from config import get_config
 from residual_chat_resonant import ResidualChatResonant
@@ -43,6 +43,15 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config["JSON_SORT_KEYS"] = False
+
+BUILD_MATERIAL_FILENAME = "ResidualAGI_WHOLE_BUILD_COMPLETE_2026-08-10-2.pdf"
+BUILD_MATERIAL_SOURCE_URL = (
+    "https://www.dropbox.com/scl/fi/zggkof9fimgfdkoa3bvzj/"
+    "ResidualAGI_WHOLE_BUILD_COMPLETE_2026-08-10-2.pdf"
+    "?rlkey=wc1kshiv8uoy8sdofxoyx8o97&st=juksygo9&dl=1"
+)
+BUILD_MATERIAL_DIR = os.path.join(app.root_path, "static", "build-materials")
+BUILD_MATERIAL_LOCAL_PATH = os.path.join(BUILD_MATERIAL_DIR, BUILD_MATERIAL_FILENAME)
 
 # ------------------------------------------------------------------
 # Persistence
@@ -171,6 +180,13 @@ def _validate_text(value: Any, field: str, min_len: int = 1, max_len: int = 4096
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/build-materials/residual-agi")
+def build_material_residual_agi():
+    if os.path.exists(BUILD_MATERIAL_LOCAL_PATH):
+        return send_from_directory(BUILD_MATERIAL_DIR, BUILD_MATERIAL_FILENAME)
+    return redirect(BUILD_MATERIAL_SOURCE_URL, code=302)
 
 
 # ------------------------------------------------------------------

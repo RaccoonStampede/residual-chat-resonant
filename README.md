@@ -57,6 +57,9 @@ python web_chat.py
 
 Opens at **http://localhost:5000** with the quantum singularity UI.
 
+Build material PDF endpoint:
+- `GET /build-materials/residual-agi` (serves local `static/build-materials/ResidualAGI_WHOLE_BUILD_COMPLETE_2026-08-10-2.pdf` when present, otherwise redirects to source link)
+
 ### Keyboard Shortcuts
 
 | Shortcut | Action |
