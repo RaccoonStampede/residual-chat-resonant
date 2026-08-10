@@ -14,7 +14,11 @@ else:
     _FLASK_IMPORT_ERROR = None
 
 
-def create_app(session: ChatSession = None):
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 5000
+
+
+def create_app(session: ChatSession = None, port: int = DEFAULT_PORT):
     """Create the Flask application."""
     if Flask is None:
         raise RuntimeError(
@@ -23,10 +27,11 @@ def create_app(session: ChatSession = None):
 
     app = Flask(__name__)
     state = {"session": session or ChatSession(), "lock": Lock()}
+    allowed_origins = {f"http://localhost:{port}", f"http://127.0.0.1:{port}"}
 
     def ok_response(payload=None):
         data = {"ok": True}
-        if payload:
+        if payload is not None:
             data.update(payload)
         return jsonify(data)
 
@@ -39,9 +44,11 @@ def create_app(session: ChatSession = None):
 
     @app.after_request
     def add_cors_headers(response):
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
-        response.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
+        origin = request.headers.get("Origin")
+        if origin in allowed_origins:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+            response.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
         return response
 
     @app.route("/", methods=["GET"])
@@ -57,24 +64,24 @@ def create_app(session: ChatSession = None):
         if not query:
             return error_response("query is required")
         try:
-            response = run_action(lambda current: current.ask(query))
+            response, status = run_action(lambda current: (current.ask(query), current.status()))
         except ValueError as exc:
             return error_response(str(exc))
-        return ok_response({"response": response, "status": run_action(lambda current: current.status())})
+        return ok_response({"response": response, "status": status})
 
     @app.route("/api/confirm", methods=["POST", "OPTIONS"])
     def api_confirm():
         if request.method == "OPTIONS":
             return ("", 204)
-        message = run_action(lambda current: current.confirm())
-        return ok_response({"message": message, "status": run_action(lambda current: current.status())})
+        message, status = run_action(lambda current: (current.confirm(), current.status()))
+        return ok_response({"message": message, "status": status})
 
     @app.route("/api/reject", methods=["POST", "OPTIONS"])
     def api_reject():
         if request.method == "OPTIONS":
             return ("", 204)
-        message = run_action(lambda current: current.reject())
-        return ok_response({"message": message, "status": run_action(lambda current: current.status())})
+        message, status = run_action(lambda current: (current.reject(), current.status()))
+        return ok_response({"message": message, "status": status})
 
     @app.route("/api/teach", methods=["POST", "OPTIONS"])
     def api_teach():
@@ -85,10 +92,10 @@ def create_app(session: ChatSession = None):
         if not text:
             return error_response("text is required")
         try:
-            message = run_action(lambda current: current.teach(text))
+            message, status = run_action(lambda current: (current.teach(text), current.status()))
         except ValueError as exc:
             return error_response(str(exc))
-        return ok_response({"message": message, "status": run_action(lambda current: current.status())})
+        return ok_response({"message": message, "status": status})
 
     @app.route("/api/status", methods=["GET", "OPTIONS"])
     def api_status():
@@ -114,10 +121,8 @@ def create_app(session: ChatSession = None):
     return app
 
 
-app = create_app() if Flask is not None else None
-
-
 if __name__ == "__main__":
     if Flask is None:
         raise SystemExit("Flask is required to run this server. Install it with: pip install Flask")
-    app.run(host="0.0.0.0", port=5000)
+    app = create_app(port=DEFAULT_PORT)
+    app.run(host=DEFAULT_HOST, port=DEFAULT_PORT)
