@@ -248,7 +248,7 @@ class CLIChat:
                     logger.warning("Failed to persist message", exc_info=True)
 
 
-def handle_input(session: ChatSession, text: str) -> tuple:
+def handle_input(session: ChatSession, text: str) -> tuple[str, bool]:
     """Process one line of CLI input against a ChatSession.
 
     Returns ``(message, should_exit)`` so callers can decide whether to quit.

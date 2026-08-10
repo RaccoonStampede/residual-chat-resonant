@@ -571,16 +571,22 @@ def create_app(session=None):
         try:
             reply = session.ask(query)
             return jsonify({"response": reply})
-        except ValueError as exc:
-            return jsonify({"error": str(exc)}), 400
+        except ValueError:
+            return jsonify({"error": "Invalid query."}), 400
 
     @factory_app.route("/api/confirm", methods=["POST"])
     def _cs_confirm():
-        return jsonify({"message": session.confirm()})
+        try:
+            return jsonify({"message": session.confirm()})
+        except Exception:
+            return jsonify({"error": "Confirm failed."}), 500
 
     @factory_app.route("/api/reject", methods=["POST"])
     def _cs_reject():
-        return jsonify({"message": session.reject()})
+        try:
+            return jsonify({"message": session.reject()})
+        except Exception:
+            return jsonify({"error": "Reject failed."}), 500
 
     @factory_app.route("/api/teach", methods=["POST"])
     def _cs_teach():
@@ -590,8 +596,8 @@ def create_app(session=None):
             return jsonify({"error": "text must not be empty"}), 400
         try:
             return jsonify({"message": session.teach(text)})
-        except ValueError as exc:
-            return jsonify({"error": str(exc)}), 400
+        except ValueError:
+            return jsonify({"error": "Invalid teach text."}), 400
 
     @factory_app.route("/api/reset", methods=["POST"])
     def _cs_reset():
