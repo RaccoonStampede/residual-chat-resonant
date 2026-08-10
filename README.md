@@ -3,98 +3,163 @@
 **Deterministic Residual Language System**  
 Hudson Drift Controller · Harness · Resonant Field-Ping Synthesis
 
-**Updated Build — 9 August 2026**  
+**Updated Build — 10 August 2026**  
 David Hudson / Residual Stack
 
-## Fixes applied (2026-08-09)
+---
 
-1. **Resonant confirm / reject recording** — `say()` now records `_last_prompt`, `_last_body`, `_last_fp` so `confirm()` and `reject()` work after resonant replies.
-2. **EGGROLL rank-weight polarity** — Best fitness now receives positive weight (+1), worst receives -1.
-3. **Candidate isolation** — Full state (coherent phase, void state/phase, seq buffer, kernels) is snapshotted and restored between population members.
+## Quick Start
 
-## Quick start
+### Local (Python)
 
 ```bash
-pip install numpy
-python test_full.py
+pip install -r requirements.txt
+python web_chat.py          # web UI at http://localhost:5000
+# or
+python cli_chat.py          # interactive terminal
 ```
 
-```python
-from residual_chat_resonant import ResidualChatResonant
+### Docker
 
-chat = ResidualChatResonant(seed=137, use_eggroll=True)
-chat.inject_dense(ontology_text, passes=2)
-reply = chat.say("What is residual tension?")
-chat.confirm()
-print(chat.status())
+```bash
+cp .env.example .env        # configure environment
+docker compose up --build   # web UI at http://localhost:5000
 ```
 
-## Chat interfaces
+---
 
-### CLI chat
-
-Run the interactive terminal interface:
+## CLI Interface
 
 ```bash
 python cli_chat.py
 ```
 
-Available commands:
+| Command | Description |
+|---------|-------------|
+| `/confirm` | Confirm last response (reinforce field) |
+| `/reject` | Reject last response |
+| `/teach <text>` | Teach the model a new fragment |
+| `/status` | Show session status |
+| `/save` | Save session to SQLite |
+| `/load <id>` | Load a previous session |
+| `/list` | List all saved sessions |
+| `/export` | Export current session to JSON |
+| `/help` | Show all commands |
+| `/quit` | Exit |
 
-- `/confirm` — confirm the last reply
-- `/reject` — reject the last reply
-- `/status` — show turns, fragments, confirms, and rejects
-- `/teach <text>` — teach new text to the field
-- `/quit` or `/exit` — leave the session
+---
 
-Example:
-
-```text
-> What is residual tension?
-Speech is residual tension finding a lower energy shape in words.
-> /confirm
-confirmed  confirms=1
-> /teach Residual anchors improve future recall.
-learned 1 fragment
-```
-
-### Web chat
-
-Install Flask if you want the browser interface:
+## Web Interface
 
 ```bash
-pip install Flask
 python web_chat.py
 ```
 
-Then open http://localhost:5000
+Opens at **http://localhost:5000** with the quantum singularity UI.
 
-The web app provides:
+### Keyboard Shortcuts
 
-- `GET /` — HTML chat frontend
-- `POST /api/chat` — ask a question
-- `POST /api/confirm` — confirm the last reply
-- `POST /api/reject` — reject the last reply
-- `POST /api/teach` — teach new text
-- `GET /api/status` — inspect turns/fragments/confirms/rejects
-- `POST /api/reset` — reset the session
+| Shortcut | Action |
+|----------|--------|
+| `Enter` | Send message |
+| `Shift+Enter` | New line |
+| `Ctrl+K` / `Cmd+K` | Command palette |
+| `Esc` | Clear input |
+| `Ctrl+L` / `Cmd+L` | Clear chat locally |
+| `Ctrl+S` / `Cmd+S` | Export session as JSON |
 
-The browser UI includes a scrollable message view, send box, confirm/reject/status/reset controls, live status cards, and automatic scrolling to the latest message.
+---
+
+## REST API
+
+All endpoints return:
+```json
+{ "ok": true, "data": {}, "message": "...", "error": null, "timestamp": "..." }
+```
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/chat` | Send a message `{"query":"..."}` |
+| `POST` | `/api/confirm` | Confirm last response |
+| `POST` | `/api/reject` | Reject last response |
+| `POST` | `/api/teach` | Teach fragment `{"text":"..."}` |
+| `GET` | `/api/status` | Session status |
+| `POST` | `/api/sessions` | List sessions `{"page":1}` |
+| `GET` | `/api/sessions/<id>` | Load session + messages |
+| `DELETE` | `/api/sessions/<id>` | Soft-delete session |
+| `POST` | `/api/sessions/<id>/export` | Export session JSON |
+| `POST` | `/api/export?format=json\|csv\|txt` | Download current session |
+| `POST` | `/api/export-fragments` | Download fragments as JSON |
+| `GET` | `/api/fragments?search=...` | List/search fragments |
+| `POST` | `/api/fragments/bulk-teach` | Teach multiple `{"texts":[...]}` |
+| `GET` | `/api/metrics` | Stats (sessions, messages, fragments) |
+
+**Rate limit:** 10 requests / minute per IP.
+
+---
+
+## Environment Configuration
+
+Copy `.env.example` to `.env` and adjust:
+
+```env
+FLASK_PORT=5000
+FLASK_DEBUG=False
+STORAGE_PATH=./data
+DATABASE_URL=sqlite:///./data/residual.db
+SESSION_TIMEOUT=3600
+MAX_SESSIONS=100
+ENABLE_PERSISTENCE=True
+RATE_LIMIT=10
+RATE_LIMIT_WINDOW=60
+LOG_LEVEL=INFO
+```
+
+---
+
+## Persistent Storage
+
+All data is stored in SQLite under `./data/residual.db`:
+
+| Table | Contents |
+|-------|----------|
+| `sessions` | Session metadata (id, created/updated, stats) |
+| `messages` | Each user/assistant turn with feedback |
+| `fragments` | Trained text fragments with session link |
+| `state_snapshots` | Periodic field snapshots for session recovery |
+
+Logs are written to `./data/residual.log`.
+
+---
 
 ## Files
 
 | File | Purpose |
-|------|----------|
-| `chat_interface_utils.py` | Shared default ontology and state wrapper for CLI/web chat |
-| `cli_chat.py` | Interactive command-line chat REPL |
-| `hudson_drift.py` | Analytic Hudson Drift Law auditor + harness helpers |
-| `residual_eggroll.py` | Low-rank residual population optimizer (polarity + isolation fixed) |
-| `resonant_variants.py` | ResonantFieldV2 ranking / synthesis primitives |
-| `residual_chat_resonant.py` | Integrated chat with resonant field-ping (confirm fixed) |
-| `templates/index.html` | Minimal browser chat frontend |
-| `test_interfaces.py` | Focused CLI/web interface checks |
-| `web_chat.py` | Flask REST API + single-session web chat |
+|------|---------|
+| `residual_chat_resonant.py` | Core chat engine (confirm/reject fixed) |
+| `residual_eggroll.py` | Low-rank residual population optimizer |
+| `resonant_variants.py` | ResonantFieldV2 ranking / synthesis |
+| `hudson_drift.py` | Hudson Drift Law auditor |
+| `storage.py` | SQLite persistence layer |
+| `config.py` | Environment configuration |
+| `web_chat.py` | Flask web server + REST API |
+| `cli_chat.py` | Interactive CLI |
+| `templates/index.html` | Quantum singularity web UI |
+| `Dockerfile` | Docker image |
+| `docker-compose.yml` | Compose orchestration |
+| `.env.example` | Environment template |
+| `requirements.txt` | Python dependencies |
+| `test_fixes.py` | Targeted fix verification tests |
 | `test_full.py` | Full verification suite |
-| `test_fixes.py` | Targeted tests for the three flags |
+
+---
+
+## Core Fixes (2026-08-09)
+
+1. **Resonant confirm/reject recording** — `say()` records `_last_prompt / _last_body / _last_fp`.
+2. **EGGROLL rank-weight polarity** — Best receives +1, worst -1.
+3. **Candidate isolation** — Full state snapshot/restore between population members.
+
+---
 
 Residual field first. Lock, imprint, harness, ping, synthesize.

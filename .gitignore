@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+data/
+*.db
+*.db-wal
+*.db-shm
+*.log
+export_*.json
+export_*.csv
+export_*.txt
+fragments_*.json
+.DS_Store
